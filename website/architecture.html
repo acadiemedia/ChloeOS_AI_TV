@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChloeOS TV - Architecture</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">ChloeOS TV</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="about.html">About</a></li>
+                    <li class="nav-item"><a class="nav-link" href="architecture.html">Architecture</a></li>
+                    <li class="nav-item"><a class="nav-link" href="roadmap.html">Roadmap</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <header class="jumbotron text-center bg-primary text-white py-5">
+        <div class="container">
+            <h1 class="display-4">ChloeOS TV Architecture</h1>
+        </div>
+    </header>
+
+    <main class="container my-5">
+        <section id="architecture-overview">
+            <h2>System Overview</h2>
+            <p>The ChloeOS TV project operates on a distributed architecture, leveraging multiple components to achieve autonomous content generation and live streaming.</p>
+
+            <h3>Core Layout</h3>
+            <ul>
+                <li><strong>Master Device (phone / Termux):</strong> Runs Codex CLI + Google CLI, controls GitHub commits/pulls, and sends commands via REST or SSH to the desktop OBS.</li>
+                <li><strong>Desktop (broadcast node):</strong> Hosts OBS Studio with WebSocket plugin enabled, syncs a folder to GitHub (`/scripts/obs/`), and auto-pulls the latest scripts from the main branch.</li>
+                <li><strong>GitHub (cloud relay):</strong> Stores code + OBS Lua/Python automations, with GitHub Actions optionally triggering remote updates. Assets are mirrored to `cdn.acadiemedia.com`.</li>
+                <li><strong>LLMs:</strong> Codex (OpenAI backend) for code generation and Gemini (Google backend) for cross-checks + enrichment.</li>
+            </ul>
+
+            <h3>Data Flow</h3>
+            <p>The system follows a continuous data flow cycle:</p>
+            <ol>
+                <li>User input in Termux prompts Codex to write a script.</li>
+                <li>The script is automatically committed and pushed to GitHub.</li>
+                <li>The Desktop OBS node auto-pulls new commits periodically.</li>
+                <li>Lua/Python scripts update live scene automation or add new AI TV segments.</li>
+                <li>ChloeOS AI TV broadcasts with the latest creative logic.</li>
+            </ol>
+
+            <h3>Content Structure</h3>
+            <p>All content is organized within the <code>content/</code> directory of the main repository:</p>
+            <ul>
+                <li><strong><code>content/scripts/</code>:</strong> Generated and curated scripts for AI talk shows, animated segments, etc.</li>
+                <li><strong><code>content/visuals/</code>:</strong> Visual assets like character models, background art, and scene compositions.</li>
+                <li><strong><code>content/audio/</code>:</strong> Audio files including voiceovers, sound effects, and background music.</li>
+                <li><strong><code>content/submissions/</code>:</strong> Designated for open submissions from external sources, processed and merged by AI.</li>
+                <li><strong><code>content/metadata/</code>:</strong> Metadata files, scheduling information, and content tags.</li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="bg-dark text-white text-center py-3">
+        <p>&copy; 2025 ChloeOS TV. All rights reserved.</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

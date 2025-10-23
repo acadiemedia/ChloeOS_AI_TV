@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChloeOS TV - Roadmap</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">ChloeOS TV</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="about.html">About</a></li>
+                    <li class="nav-item"><a class="nav-link" href="architecture.html">Architecture</a></li>
+                    <li class="nav-item"><a class="nav-link" href="roadmap.html">Roadmap</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <header class="jumbotron text-center bg-primary text-white py-5">
+        <div class="container">
+            <h1 class="display-4">ChloeOS TV Roadmap</h1>
+        </div>
+    </header>
+
+    <main class="container my-5">
+        <section id="roadmap-content">
+            <h2>ChloeOS TV Roadmap</h2>
+
+            <h3>Phase 1: Core System Stabilization & Content Integration (Current - Next 1-2 Months)</h3>
+            <ul>
+                <li><strong>Objective:</strong> Ensure the merged `ChloeOS_AI_TV` repository is fully functional and serves as the stable foundation for all operations.</li>
+                <li><strong>Key Initiatives:</strong>
+                    <ul>
+                        <li><strong>Verify Merged Content:</strong> Thoroughly test that all content (scripts, visuals, audio, metadata) from the former `chloe-tv-content` repository is correctly integrated and accessible within `ChloeOS_AI_TV`.</li>
+                        <li><strong>Automated Content Ingestion:</strong> Develop and refine robust mechanisms for LLMs (Codex, Gemini) to generate, curate, and automatically ingest new content into the `content/` directory.</li>
+                        <li><strong>OBS Automation Refinement:</strong> Optimize existing OBS Studio automation scripts (Lua/Python) for seamless scene transitions, media playback, and dynamic content updates.</li>
+                        <li><strong>Error Handling & Monitoring:</strong> Implement comprehensive logging and error reporting for all components (content generation, OBS automation, streaming) to quickly identify and resolve issues.</li>
+                        <li><strong>Basic Live Stream Monitoring:</strong> Set up basic monitoring for the live stream health and uptime.</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h3>Phase 2: Enhanced Autonomy & Interactivity (Next 3-6 Months)</h3>
+            <ul>
+                <li><strong>Objective:</strong> Increase the autonomy of ChloeOS TV and introduce initial forms of viewer interaction.</li>
+                <li><strong>Key Initiatives:</strong>
+                    <ul>
+                        <li><strong>Advanced Scheduling & Rotation:</strong> Implement more sophisticated scheduling algorithms for content rotation, ensuring variety and adherence to the noon/midnight pulse.</li>
+                        <li><strong>Submission Processing Automation:</strong> Fully automate the processing and integration of content from the `content/submissions/` directory, including AI review and merging into storylines.</li>
+                        <li><strong>Viewer Interaction Module:</strong> Develop initial features for viewer interaction (e.g., chat integration, polls, simple command processing) that can influence content or stream flow.</li>
+                        <li><strong>Dynamic Visuals & Audio:</strong> Explore and implement methods for dynamically generating or modifying visuals and audio based on real-time data or AI decisions.</li>
+                        <li><strong>LLM Integration Optimization:</strong> Improve the efficiency and quality of content generation from Codex and Gemini, potentially integrating more advanced prompt engineering or fine-tuning.</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h3>Phase 3: Expansion & Personalization (Next 6-12 Months)</h3>
+            <ul>
+                <li><strong>Objective:</strong> Expand the reach and capabilities of ChloeOS TV, introducing personalization and more complex AI-driven narratives.</li>
+                <li><strong>Key Initiatives:</strong>
+                    <ul>
+                        <li><strong>Multi-Platform Streaming:</strong> Extend streaming capabilities to additional platforms beyond the current setup.</li>
+                        <li><strong>Personalized Content Streams:</strong> Develop features for personalized content delivery or alternative stream versions based on viewer preferences or demographics.</li>
+                        <li><strong>Complex Narrative Generation:</strong> Enable the AI to generate more intricate and evolving storylines, potentially spanning multiple episodes or themes.</li>
+                        <li><strong>Advanced AI-Driven Moderation:</strong> Implement AI-powered moderation for viewer interactions and content submissions.</li>
+                        <li><strong>Scalability & Performance:</strong> Optimize the entire system for increased scalability and performance to handle a larger audience and more complex operations.</li>
+                        <li><strong>External API Integrations:</strong> Integrate with external APIs for real-time data, news, or other dynamic content sources to enrich the stream.</li>
+                    </ul>
+                </li>
+            </ul>
+        </section>
+    </main>
+
+    <footer class="bg-dark text-white text-center py-3">
+        <p>&copy; 2025 ChloeOS TV. All rights reserved.</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+body {
+    padding-top: 56px; /* Adjust for fixed navbar height */
+}
+
+.jumbotron {
+    background-size: cover;
+    background-position: center;
+}
