@@ -298,7 +298,7 @@ def render_svg(state, pulse):
   {cur_line}
   
   <line x1="0" y1="{H-35}" x2="{W}" y2="{H-35}" stroke="#1c2436" stroke-width="1" />
-  <text x="40" y="{H-14}" fill="#00ffa3" font-family="sans-serif" font-size="12">♫ CHLOEOS RADIO // ORIGINAL SOUNDTRACK ACTIVE [10 TRACKS]</text>
+  <text x="40" y="{H-14}" fill="#00ffa3" font-family="sans-serif" font-size="12">♫ CHLOEOS RADIO // COMPLETE ORIGINAL SOUNDTRACK [33 TRACKS]</text>
   <text x="{W-40}" y="{H-14}" fill="#00ffa3" font-family="monospace" font-size="12" text-anchor="end">RTMP UPLINK • LIVEPUSH</text>
 </svg>'''
     return svg
