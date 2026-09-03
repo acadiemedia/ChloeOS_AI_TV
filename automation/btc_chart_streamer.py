@@ -258,11 +258,15 @@ def render_svg(state, pulse):
   <rect x="0" y="0" width="{W}" height="68" fill="#0d121b" />
   <line x1="0" y1="68" x2="{W}" y2="68" stroke="#1c2436" stroke-width="1" />
   
-  <text x="40" y="43" fill="#ffffff" font-family="sans-serif" font-size="22" font-weight="bold" letter-spacing="1">CHLOE<tspan fill="#f7931a">OS</tspan> // BITCOIN LIVE RADAR <tspan fill="#f7931a">[BTC / USD]</tspan></text>
+  <text x="40" y="42" fill="#ffffff" font-family="sans-serif" font-size="20" font-weight="bold" letter-spacing="1">CHLOE<tspan fill="#f7931a">OS</tspan> // BITCOIN LIVE RADAR <tspan fill="#f7931a">[BTC / USD]</tspan></text>
   
-  <circle cx="{W-240}" cy="36" r="6" fill="#00ffa3" opacity="{pulse_opacity}" />
-  <text x="{W-225}" y="41" fill="#00ffa3" font-family="sans-serif" font-size="13" font-weight="bold" letter-spacing="1">● LIVE STREAM</text>
-  <text x="{W-40}" y="41" fill="#8899aa" font-family="monospace" font-size="13" text-anchor="end">{ts}</text>
+  <g transform="translate({W-380}, 22)">
+    <rect x="0" y="0" width="115" height="26" rx="13" fill="#00ffa3" opacity="0.12" stroke="#00ffa3" stroke-width="1" />
+    <circle cx="16" cy="13" r="4" fill="#00ffa3" opacity="{pulse_opacity}" />
+    <text x="28" y="17" fill="#00ffa3" font-family="sans-serif" font-size="11" font-weight="bold" letter-spacing="1">LIVE STREAM</text>
+  </g>
+  
+  <text x="{W-40}" y="40" fill="#8899aa" font-family="monospace" font-size="13" text-anchor="end">{ts}</text>
   
   <g transform="translate(70, 95)">
     <rect x="0" y="2" width="32" height="32" rx="16" fill="#f7931a" />
