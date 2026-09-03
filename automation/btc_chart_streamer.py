@@ -185,7 +185,7 @@ def render_svg(state, pulse):
     pulse_opacity = "1.0" if pulse else "0.3"
 
     W, H = 1280, 720
-    gx, gy, gw, gh = 70, 220, 1100, 440
+    gx, gy, gw, gh = 70, 215, 1100, 435
 
     if candles:
         min_p = min(c["low"] for c in candles)
@@ -207,6 +207,7 @@ def render_svg(state, pulse):
 
     candle_svg = []
     volume_svg = []
+    time_axis_svg = []
     if candles:
         step = gw / len(candles)
         bw = max(int(step * 0.62), 4)
@@ -228,9 +229,17 @@ def render_svg(state, pulse):
 
             # Volume sub-bar at bottom of chart
             if max_vol > 0:
-                v_h = max(int((c.get("volume", 0) / max_vol) * 60), 2)
+                v_h = max(int((c.get("volume", 0) / max_vol) * 55), 2)
                 v_y = gy + gh - v_h
                 volume_svg.append(f'<rect x="{cx - bw//2}" y="{v_y}" width="{bw}" height="{v_h}" fill="{c_col}" opacity="0.22" rx="1" />')
+
+            # Time scale ticks & labels along bottom axis
+            if i % 5 == 0 or i == len(candles) - 1:
+                t_val = c.get("time", time.time())
+                t_str = datetime.fromtimestamp(t_val, tz=timezone.utc).strftime("%H:%M")
+                time_axis_svg.append(f'<line x1="{cx}" y1="{gy}" x2="{cx}" y2="{gy+gh}" stroke="#141923" stroke-width="1" stroke-dasharray="3,3" />')
+                time_axis_svg.append(f'<line x1="{cx}" y1="{gy+gh}" x2="{cx}" y2="{gy+gh+5}" stroke="#2e3d56" stroke-width="1" />')
+                time_axis_svg.append(f'<text x="{cx}" y="{gy+gh+18}" fill="#6b7d99" font-family="monospace" font-size="11" text-anchor="middle">{t_str}</text>')
 
     grid_svg = []
     for div in range(5):
@@ -297,13 +306,14 @@ def render_svg(state, pulse):
   
   <rect x="{gx}" y="{gy}" width="{gw}" height="{gh}" fill="#080a0f" stroke="#1c2436" stroke-width="1" rx="4" />
   {"".join(grid_svg)}
+  {"".join(time_axis_svg)}
   {"".join(volume_svg)}
   {"".join(candle_svg)}
   {cur_line}
   
-  <line x1="0" y1="{H-35}" x2="{W}" y2="{H-35}" stroke="#1c2436" stroke-width="1" />
-  <text x="40" y="{H-14}" fill="#00ffa3" font-family="sans-serif" font-size="12">♫ CHLOEOS RADIO // COMPLETE ORIGINAL SOUNDTRACK [33 TRACKS]</text>
-  <text x="{W-40}" y="{H-14}" fill="#00ffa3" font-family="monospace" font-size="12" text-anchor="end">RTMP UPLINK • LIVEPUSH</text>
+  <line x1="0" y1="{H-28}" x2="{W}" y2="{H-28}" stroke="#1c2436" stroke-width="1" />
+  <text x="40" y="{H-10}" fill="#00ffa3" font-family="sans-serif" font-size="12">♫ CHLOEOS RADIO // COMPLETE ORIGINAL SOUNDTRACK [33 TRACKS]</text>
+  <text x="{W-40}" y="{H-10}" fill="#00ffa3" font-family="monospace" font-size="12" text-anchor="end">RTMP UPLINK • LIVEPUSH</text>
 </svg>'''
     return svg
 
