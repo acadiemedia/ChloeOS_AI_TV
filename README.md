@@ -89,3 +89,36 @@ The `content/` directory within this repository serves as the central hub for al
 *   **`content/audio/`**: Holds audio files such as voiceovers, sound effects, background music, and any other auditory components.
 *   **`content/submissions/`**: This directory is designated for open submissions from external sources. At the end of each 12-hour cycle, AI will process and merge content from this directory into the next storyline.
 *   **`content/metadata/`**: Contains metadata files, scheduling information, content tags, and other administrative data crucial for the autonomous operation and content rotation of Chloe TV.
+
+---
+
+## Autonomous 24/7 Cloud Broadcaster (GitHub Actions Worker)
+
+This repository includes a fully autonomous cloud broadcast worker powered by **GitHub Actions** (`ubuntu-latest`) that renders and streams a real-time financial HUD with high-fidelity original audio directly to an RTMP ingest destination (e.g. Livepush / YouTube Live).
+
+### Architecture Highlights
+
+* **100% Free Cloud Compute:** Hosted on public GitHub runners (2 vCPUs, 7 GB RAM, gigabit network, FFmpeg pre-installed).
+* **Live Candlestick & Market Engine:** Polls real-time 1-minute candlestick bars and 24-hour volume/stats from **Coinbase Pro** (`BTC-USD`) with automated failover to **Kraken** (`XBTUSD`).
+* **Visual Dark-Mode HUD:** Dynamic SVG rendering with `rsvg-convert` piping raw frames into an FFmpeg H.264/AAC pipeline at 720p 25fps.
+  * Price tickers, 24h change %, 24h High/Low, 24h Volume.
+  * 35 real-time 1-minute candlestick wicks and bodies.
+  * Translucent volume sub-bars.
+  * Precision 2D grid with horizontal price markers and UTC time scale axis.
+  * Dedicated glowing `LIVE STREAM` indicator pill.
+* **33-Track Original Soundtrack Audio Engine:**
+  * Packages 33 original Steve / ChloeOS tracks inside `automation/audio/`.
+  * Seamless, endless concatenation loop via `ffmpeg -stream_loop -1 -f concat`.
+  * 100% safe from YouTube Content ID claims, mutes, or third-party ads.
+* **Continuous Relay:**
+  * Runners execute in 6-hour blocks (GitHub Actions ceiling) and cycle automatically via scheduled cron (`0 */5 * * *`).
+  * Concurrency group `chloe-live-stream` ensures seamless single-stream handoff with zero duplicate stream collisions.
+
+### Configuration & Deployment
+
+1. **Secret Setup:**
+   * Go to **Settings $\rightarrow$ Secrets and variables $\rightarrow$ Actions**.
+   * Add secret: `LIVEPUSH_RTMP_URL` with your target RTMP destination URL.
+2. **Triggering the Stream:**
+   * Push to `main` touching `automation/**` or `.github/workflows/live_stream.yml`.
+   * Or click **Actions $\rightarrow$ ChloeOS Live Bitcoin Streamer $\rightarrow$ Run workflow**.
