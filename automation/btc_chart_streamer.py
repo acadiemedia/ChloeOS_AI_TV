@@ -298,7 +298,7 @@ def render_svg(state, pulse):
   {cur_line}
   
   <line x1="0" y1="{H-35}" x2="{W}" y2="{H-35}" stroke="#1c2436" stroke-width="1" />
-  <text x="40" y="{H-14}" fill="#54657e" font-family="sans-serif" font-size="12">ChloeOS Cloud Worker • Autonomous Broadcast Node</text>
+  <text x="40" y="{H-14}" fill="#00ffa3" font-family="sans-serif" font-size="12">♫ CHLOEOS RADIO // ORIGINAL SOUNDTRACK ACTIVE [10 TRACKS]</text>
   <text x="{W-40}" y="{H-14}" fill="#00ffa3" font-family="monospace" font-size="12" text-anchor="end">RTMP UPLINK • LIVEPUSH</text>
 </svg>'''
     return svg
@@ -330,12 +330,34 @@ def run_stream():
         with market_lock:
             if market_data["price"] > 0:
                 break
-        time.sleep(0.2)
+    audio_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audio")
+    playlist_path = os.path.join(audio_dir, "playlist.txt")
+    mp3_files = sorted([f for f in os.listdir(audio_dir) if f.lower().endswith(".mp3")]) if os.path.exists(audio_dir) else []
+
+    if mp3_files:
+        try:
+            with open(playlist_path, "w") as pf:
+                for m in mp3_files:
+                    full_p = os.path.abspath(os.path.join(audio_dir, m))
+                    pf.write(f"file '{full_p}'\n")
+            print(f"[STREAM-WORKER] Audio Engine: Loaded {len(mp3_files)} original soundtrack files into playlist.", flush=True)
+            audio_inputs = [
+                "-stream_loop", "-1",
+                "-f", "concat",
+                "-safe", "0",
+                "-i", playlist_path
+            ]
+        except Exception as e:
+            print(f"[STREAM-WORKER] Playlist error: {e}. Falling back to silence.", file=sys.stderr)
+            audio_inputs = ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100"]
+    else:
+        print("[STREAM-WORKER] No local audio found. Using synthetic carrier.", flush=True)
+        audio_inputs = ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100"]
 
     ffmpeg_cmd = [
         "ffmpeg", "-hide_banner",
         "-f", "image2pipe", "-r", "1", "-i", "-",
-        "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+        *audio_inputs,
         "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
         "-r", "25", "-g", "50", "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-b:a", "128k",
