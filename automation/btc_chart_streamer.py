@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """ChloeOS Autonomous Live Bitcoin Chart Streamer (Cloud Worker Edition).
 
-Polls real-time Binance BTC/USDT market data & 1-minute candlesticks,
-renders a live dark-mode visual financial display, and streams directly
-to Livepush RTMP ingest at 720p 25fps with constant GOP & audio carrier.
+Polls real-time Coinbase / Kraken market data & 1-minute candlesticks,
+renders a live dark-mode visual financial display with volume sub-bars,
+and streams directly to Livepush RTMP ingest at 720p 25fps.
 """
 
 import os
@@ -22,12 +22,13 @@ STATE_FILE = "/tmp/btc_state.json"
 
 market_lock = threading.Lock()
 market_data = {
-    "price": 77800.0,
+    "price": 0.0,
     "change": 0.0,
-    "high": 78000.0,
-    "low": 76000.0,
-    "volume": 20000.0,
+    "high": 0.0,
+    "low": 0.0,
+    "volume": 0.0,
     "candles": [],
+    "source": "INITIALIZING",
     "last_update": time.time(),
     "frames_sent": 0
 }
@@ -42,60 +43,132 @@ def handle_signal(sig, frame):
 signal.signal(signal.SIGINT, handle_signal)
 signal.signal(signal.SIGTERM, handle_signal)
 
+def fetch_coinbase():
+    # 1. 24h Stats
+    u_stats = "https://api.exchange.coinbase.com/products/BTC-USD/stats"
+    req_s = urllib.request.Request(u_stats, headers={"User-Agent": "ChloeOS/Cloud"})
+    with urllib.request.urlopen(req_s, timeout=4) as resp:
+        stats = json.loads(resp.read().decode())
+        last_p = float(stats["last"])
+        open_p = float(stats["open"])
+        high_p = float(stats["high"])
+        low_p = float(stats["low"])
+        vol_p = float(stats["volume"])
+        change_pct = ((last_p - open_p) / open_p) * 100.0 if open_p > 0 else 0.0
+
+    # 2. 1-minute Candlesticks (granularity=60)
+    u_candles = "https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=60"
+    req_c = urllib.request.Request(u_candles, headers={"User-Agent": "ChloeOS/Cloud"})
+    with urllib.request.urlopen(req_c, timeout=4) as resp2:
+        raw_c = json.loads(resp2.read().decode())
+        # raw: [time, low, high, open, close, volume] (newest first)
+        c_slice = raw_c[:35][::-1]  # reverse to chronological (oldest to newest)
+        candles = []
+        for c in c_slice:
+            candles.append({
+                "time": int(c[0]),
+                "low": float(c[1]),
+                "high": float(c[2]),
+                "open": float(c[3]),
+                "close": float(c[4]),
+                "volume": float(c[5])
+            })
+
+    return {
+        "price": last_p,
+        "change": change_pct,
+        "high": high_p,
+        "low": low_p,
+        "volume": vol_p,
+        "candles": candles,
+        "source": "COINBASE SPOT"
+    }
+
+def fetch_kraken():
+    # Fallback to Kraken if Coinbase fails
+    u_ticker = "https://api.kraken.com/0/public/Ticker?pair=XBTUSD"
+    req_t = urllib.request.Request(u_ticker, headers={"User-Agent": "ChloeOS/Cloud"})
+    with urllib.request.urlopen(req_t, timeout=4) as resp:
+        data_t = json.loads(resp.read().decode())["result"]["XXBTZUSD"]
+        last_p = float(data_t["c"][0])
+        high_p = float(data_t["h"][1])
+        low_p = float(data_t["l"][1])
+        vol_p = float(data_t["v"][1])
+        open_p = float(data_t["o"])
+        change_pct = ((last_p - open_p) / open_p) * 100.0 if open_p > 0 else 0.0
+
+    u_ohlc = "https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=1"
+    req_o = urllib.request.Request(u_ohlc, headers={"User-Agent": "ChloeOS/Cloud"})
+    with urllib.request.urlopen(req_o, timeout=4) as resp2:
+        raw_k = json.loads(resp2.read().decode())["result"]["XXBTZUSD"]
+        c_slice = raw_k[-35:]
+        candles = []
+        for c in c_slice:
+            candles.append({
+                "time": int(c[0]),
+                "open": float(c[1]),
+                "high": float(c[2]),
+                "low": float(c[3]),
+                "close": float(c[4]),
+                "volume": float(c[6])
+            })
+
+    return {
+        "price": last_p,
+        "change": change_pct,
+        "high": high_p,
+        "low": low_p,
+        "volume": vol_p,
+        "candles": candles,
+        "source": "KRAKEN SPOT"
+    }
+
 def fetch_market_loop():
     global running
+    first_fetch = True
     while running:
+        fetched = None
+        # 1. Try Coinbase
         try:
-            # 1. Ticker 24h
-            t_url = "https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT"
-            req = urllib.request.Request(t_url, headers={"User-Agent": "Mozilla/5.0 (ChloeOS Cloud)"})
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                t_json = json.loads(resp.read().decode())
-                p = float(t_json["lastPrice"])
-                ch = float(t_json["priceChangePercent"])
-                hi = float(t_json["highPrice"])
-                lo = float(t_json["lowPrice"])
-                vol = float(t_json["volume"])
+            fetched = fetch_coinbase()
+        except Exception as e1:
+            # 2. Fallback to Kraken
+            try:
+                fetched = fetch_kraken()
+            except Exception as e2:
+                print(f"[STREAM-WORKER] Data fetch failed. Coinbase: {e1} | Kraken: {e2}", file=sys.stderr)
 
-            # 2. Klines (1m candles, 35 count)
-            k_url = "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=35"
-            req2 = urllib.request.Request(k_url, headers={"User-Agent": "Mozilla/5.0 (ChloeOS Cloud)"})
-            with urllib.request.urlopen(req2, timeout=5) as resp2:
-                k_json = json.loads(resp2.read().decode())
-                candles = []
-                for k in k_json:
-                    candles.append({
-                        "open": float(k[1]),
-                        "high": float(k[2]),
-                        "low": float(k[3]),
-                        "close": float(k[4])
-                    })
-
+        if fetched:
             with market_lock:
-                market_data["price"] = p
-                market_data["change"] = ch
-                market_data["high"] = hi
-                market_data["low"] = lo
-                market_data["volume"] = vol
-                market_data["candles"] = candles
+                market_data["price"] = fetched["price"]
+                market_data["change"] = fetched["change"]
+                market_data["high"] = fetched["high"]
+                market_data["low"] = fetched["low"]
+                market_data["volume"] = fetched["volume"]
+                market_data["candles"] = fetched["candles"]
+                market_data["source"] = fetched["source"]
                 market_data["last_update"] = time.time()
+
+            if first_fetch:
+                print(f"[STREAM-WORKER] Initial Market Sync: ${fetched['price']:,.2f} | {len(fetched['candles'])} candles | Source: {fetched['source']}", flush=True)
+                first_fetch = False
 
             try:
                 with open(STATE_FILE, "w") as sf:
                     json.dump({
-                        "price": p,
-                        "change": ch,
-                        "high": hi,
-                        "low": lo,
-                        "volume": vol,
+                        "price": fetched["price"],
+                        "change": fetched["change"],
+                        "high": fetched["high"],
+                        "low": fetched["low"],
+                        "volume": fetched["volume"],
+                        "candles_count": len(fetched["candles"]),
+                        "source": fetched["source"],
                         "updated_at": datetime.now(timezone.utc).isoformat(),
                         "frames_sent": market_data["frames_sent"]
                     }, sf)
             except Exception:
                 pass
 
-        except Exception as e:
-            pass
         time.sleep(1.5)
 
 def render_svg(state, pulse):
@@ -105,6 +178,7 @@ def render_svg(state, pulse):
     lo = state["low"]
     vol = state["volume"]
     candles = state["candles"]
+    src = state.get("source", "COINBASE SPOT")
 
     color = "#00ffa3" if ch >= 0 else "#ff3b69"
     sign = "+" if ch >= 0 else ""
@@ -116,17 +190,26 @@ def render_svg(state, pulse):
     if candles:
         min_p = min(c["low"] for c in candles)
         max_p = max(c["high"] for c in candles)
+        max_vol = max((c.get("volume", 0) for c in candles), default=1.0)
     else:
-        min_p, max_p = p * 0.995, p * 1.005
-    p_range = max(max_p - min_p, 5.0)
+        min_p = p * 0.998 if p > 0 else 70000.0
+        max_p = p * 1.002 if p > 0 else 71000.0
+        max_vol = 1.0
+
+    p_range = max(max_p - min_p, 8.0)
+    # Add 8% vertical padding so wicks don't touch edges
+    chart_min = min_p - (p_range * 0.05)
+    chart_max = max_p + (p_range * 0.05)
+    chart_range = chart_max - chart_min
 
     def to_y(val):
-        return gy + gh - int((val - min_p) / p_range * gh)
+        return gy + gh - int((val - chart_min) / chart_range * gh)
 
     candle_svg = []
+    volume_svg = []
     if candles:
         step = gw / len(candles)
-        bw = max(int(step * 0.65), 5)
+        bw = max(int(step * 0.62), 4)
         for i, c in enumerate(candles):
             cx = int(gx + i * step + step / 2)
             y_h = to_y(c["high"])
@@ -135,19 +218,28 @@ def render_svg(state, pulse):
             y_c = to_y(c["close"])
             c_col = "#00ffa3" if c["close"] >= c["open"] else "#ff3b69"
             
-            candle_svg.append(f'<line x1="{cx}" y1="{y_h}" x2="{cx}" y2="{y_l}" stroke="{c_col}" stroke-width="2" opacity="0.8" />')
+            # Wicks
+            candle_svg.append(f'<line x1="{cx}" y1="{y_h}" x2="{cx}" y2="{y_l}" stroke="{c_col}" stroke-width="2" opacity="0.85" />')
+            
+            # Candle Body
             top_y = min(y_o, y_c)
-            b_h = max(abs(y_c - y_o), 2)
+            b_h = max(abs(y_c - y_o), 3)
             candle_svg.append(f'<rect x="{cx - bw//2}" y="{top_y}" width="{bw}" height="{b_h}" fill="{c_col}" rx="2" />')
+
+            # Volume sub-bar at bottom of chart
+            if max_vol > 0:
+                v_h = max(int((c.get("volume", 0) / max_vol) * 60), 2)
+                v_y = gy + gh - v_h
+                volume_svg.append(f'<rect x="{cx - bw//2}" y="{v_y}" width="{bw}" height="{v_h}" fill="{c_col}" opacity="0.22" rx="1" />')
 
     grid_svg = []
     for div in range(5):
-        gp = min_p + (p_range * div / 4.0)
+        gp = chart_min + (chart_range * div / 4.0)
         gy_pos = to_y(gp)
         grid_svg.append(f'<line x1="{gx}" y1="{gy_pos}" x2="{gx+gw}" y2="{gy_pos}" stroke="#161c28" stroke-width="1" stroke-dasharray="4,4" />')
         grid_svg.append(f'<text x="{gx+gw+12}" y="{gy_pos+4}" fill="#54657e" font-family="monospace" font-size="12">${gp:,.1f}</text>')
 
-    cur_y = to_y(p)
+    cur_y = to_y(p) if p > 0 else gy + gh // 2
     cur_line = f'''<line x1="{gx}" y1="{cur_y}" x2="{gx+gw}" y2="{cur_y}" stroke="{color}" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.95" />
 <rect x="{gx+gw+5}" y="{cur_y-10}" width="95" height="20" fill="{color}" rx="3" />
 <text x="{gx+gw+12}" y="{cur_y+4}" fill="#080a0f" font-family="monospace" font-size="12" font-weight="bold">${p:,.2f}</text>'''
@@ -179,7 +271,7 @@ def render_svg(state, pulse):
     <text x="42" y="24" fill="#ffffff" font-family="sans-serif" font-size="20" font-weight="bold" letter-spacing="1">BITCOIN</text>
     <rect x="145" y="6" width="95" height="24" rx="4" fill="#f7931a" opacity="0.2" />
     <text x="192" y="23" fill="#f7931a" font-family="monospace" font-size="14" font-weight="bold" text-anchor="middle">BTC / USD</text>
-    <text x="252" y="23" fill="#71829e" font-family="monospace" font-size="13">• BINANCE SPOT • 1M REAL-TIME CANDLES</text>
+    <text x="252" y="23" fill="#71829e" font-family="monospace" font-size="13">• {src} • 1M REAL-TIME CANDLES</text>
     
     <text x="0" y="85" fill="#ffffff" font-family="monospace" font-size="52" font-weight="bold">${p:,.2f}</text>
     <text x="325" y="83" fill="#71829e" font-family="monospace" font-size="16">USD</text>
@@ -201,6 +293,7 @@ def render_svg(state, pulse):
   
   <rect x="{gx}" y="{gy}" width="{gw}" height="{gh}" fill="#080a0f" stroke="#1c2436" stroke-width="1" rx="4" />
   {"".join(grid_svg)}
+  {"".join(volume_svg)}
   {"".join(candle_svg)}
   {cur_line}
   
@@ -216,7 +309,6 @@ def run_stream():
     
     if not endpoint:
         print("[STREAM-WORKER] ERROR: No RTMP endpoint provided!", file=sys.stderr)
-        print("Usage: python3 btc_chart_streamer.py <RTMP_URL> (or set RTMP_URL env variable)", file=sys.stderr)
         sys.exit(1)
 
     masked_url = endpoint
@@ -231,7 +323,14 @@ def run_stream():
 
     t = threading.Thread(target=fetch_market_loop, daemon=True)
     t.start()
-    time.sleep(1.0)
+
+    # Wait up to 5s for first market payload
+    print("[STREAM-WORKER] Awaiting initial market data...", flush=True)
+    for _ in range(25):
+        with market_lock:
+            if market_data["price"] > 0:
+                break
+        time.sleep(0.2)
 
     ffmpeg_cmd = [
         "ffmpeg", "-hide_banner",
@@ -260,7 +359,8 @@ def run_stream():
                     "high": market_data["high"],
                     "low": market_data["low"],
                     "volume": market_data["volume"],
-                    "candles": list(market_data["candles"])
+                    "candles": list(market_data["candles"]),
+                    "source": market_data["source"]
                 }
 
             svg = render_svg(state_copy, pulse)
@@ -278,7 +378,7 @@ def run_stream():
             market_data["frames_sent"] += 1
 
             if time.time() - last_log_time >= 60:
-                print(f"[STREAM-WORKER] Uptime active | BTC: ${state_copy['price']:,.2f} | Frames: {market_data['frames_sent']}", flush=True)
+                print(f"[STREAM-WORKER] Active | {state_copy['source']} | BTC: ${state_copy['price']:,.2f} | Candles: {len(state_copy['candles'])} | Frames: {market_data['frames_sent']}", flush=True)
                 last_log_time = time.time()
 
             elapsed = time.time() - t0
