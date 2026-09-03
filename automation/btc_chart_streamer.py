@@ -10,6 +10,7 @@ import os
 import sys
 import time
 import json
+import random
 import shutil
 import signal
 import threading
@@ -374,16 +375,22 @@ def run_stream():
     audio_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audio")
     playlist_path = os.path.join(audio_dir, "playlist.txt")
     manifest_path = os.path.join(audio_dir, "manifest.json")
-    mp3_files = sorted([f for f in os.listdir(audio_dir) if f.lower().endswith(".mp3")]) if os.path.exists(audio_dir) else []
-
     audio_manifest = []
     if os.path.exists(manifest_path):
         try:
             with open(manifest_path, "r") as mf:
                 audio_manifest = json.load(mf)
-            print(f"[STREAM-WORKER] Audio Engine: Loaded track metadata for {len(audio_manifest)} songs.", flush=True)
+            # Shuffle manifest randomly so each run plays in a unique fresh order
+            random.shuffle(audio_manifest)
+            mp3_files = [t["file"] for t in audio_manifest if os.path.exists(os.path.join(audio_dir, t["file"]))]
+            print(f"[STREAM-WORKER] Audio Engine: Shuffled {len(audio_manifest)} tracks for this session.", flush=True)
         except Exception as e:
             print(f"[STREAM-WORKER] Audio manifest warning: {e}", file=sys.stderr)
+            mp3_files = [f for f in os.listdir(audio_dir) if f.lower().endswith(".mp3")]
+            random.shuffle(mp3_files)
+    else:
+        mp3_files = [f for f in os.listdir(audio_dir) if f.lower().endswith(".mp3")]
+        random.shuffle(mp3_files)
 
     if mp3_files:
         try:
@@ -391,7 +398,7 @@ def run_stream():
                 for m in mp3_files:
                     full_p = os.path.abspath(os.path.join(audio_dir, m))
                     pf.write(f"file '{full_p}'\n")
-            print(f"[STREAM-WORKER] Audio Engine: Loaded {len(mp3_files)} original soundtrack files into playlist.", flush=True)
+            print(f"[STREAM-WORKER] Audio Engine: Configured {len(mp3_files)} randomized tracks into playlist.", flush=True)
             audio_inputs = [
                 "-stream_loop", "-1",
                 "-f", "concat",
