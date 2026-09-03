@@ -1,0 +1,56 @@
+name: ChloeOS Live Bitcoin Streamer
+
+on:
+  workflow_dispatch:
+    inputs:
+      rtmp_url:
+        description: 'Target RTMP Ingest URL (Leave blank if LIVEPUSH_RTMP_URL secret is set)'
+        required: false
+        default: ''
+        type: string
+  schedule:
+    - cron: '0 */6 * * *'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/live_stream.yml'
+      - 'automation/**'
+
+concurrency:
+  group: chloe-live-stream
+  cancel-in-progress: true
+
+jobs:
+  broadcast:
+    name: Cloud Broadcast Worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends librsvg2-bin ffmpeg fonts-dejavu-core
+
+      - name: Start Livepush Stream Broadcast
+        env:
+          INPUT_URL: ${{ github.event.inputs.rtmp_url }}
+          SECRET_URL: ${{ secrets.LIVEPUSH_RTMP_URL }}
+        run: |
+          TARGET_URL="${INPUT_URL:-$SECRET_URL}"
+          if [ -z "$TARGET_URL" ]; then
+            echo "::error::No RTMP URL configured!"
+            echo "Please configure the secret LIVEPUSH_RTMP_URL under Repo Settings -> Secrets and variables -> Actions, or supply it via Workflow Dispatch."
+            exit 1
+          fi
+          echo "Starting ChloeOS Autonomous Streamer..."
+          python3 automation/btc_chart_streamer.py "$TARGET_URL"
