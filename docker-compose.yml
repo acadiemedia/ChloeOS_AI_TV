@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  chloe-streamer:
+    build: .
+    container_name: chloe_live_streamer
+    restart: always
+    environment:
+      - RTMP_URL=rtmp://stream.livepush.io/live/rtmp_0c6e2581584943ec97e7e1104783d429
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
