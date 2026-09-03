@@ -171,7 +171,26 @@ def fetch_market_loop():
 
         time.sleep(1.5)
 
-def render_svg(state, pulse):
+def get_current_track_info(manifest, elapsed_sec):
+    if not manifest:
+        return "CHLOEOS ORIGINAL SOUNDTRACK", "", ""
+    total_duration = sum(t.get("duration", 180.0) for t in manifest)
+    if total_duration <= 0:
+        return "CHLOEOS ORIGINAL SOUNDTRACK", "", ""
+    
+    current_time = elapsed_sec % total_duration
+    accum = 0.0
+    for t in manifest:
+        d = t.get("duration", 180.0)
+        if accum + d > current_time:
+            track_pos = current_time - accum
+            pos_m, pos_s = divmod(int(track_pos), 60)
+            len_m, len_s = divmod(int(d), 60)
+            return t["title"], f"{pos_m:02d}:{pos_s:02d}", f"{len_m:02d}:{len_s:02d}"
+        accum += d
+    return manifest[0]["title"], "00:00", "00:00"
+
+def render_svg(state, pulse, track_title="", track_pos="", track_len=""):
     p = state["price"]
     ch = state["change"]
     hi = state["high"]
@@ -255,6 +274,14 @@ def render_svg(state, pulse):
 
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
+    if track_title:
+        if track_pos and track_len:
+            audio_display = f'<text x="40" y="{H-10}" fill="#00ffa3" font-family="sans-serif" font-size="12" font-weight="bold">♫ NOW PLAYING: <tspan fill="#ffffff">{track_title}</tspan> <tspan fill="#71829e">[{track_pos} / {track_len}]</tspan></text>'
+        else:
+            audio_display = f'<text x="40" y="{H-10}" fill="#00ffa3" font-family="sans-serif" font-size="12" font-weight="bold">♫ NOW PLAYING: <tspan fill="#ffffff">{track_title}</tspan></text>'
+    else:
+        audio_display = f'<text x="40" y="{H-10}" fill="#00ffa3" font-family="sans-serif" font-size="12">♫ CHLOEOS RADIO // COMPLETE ORIGINAL SOUNDTRACK [33 TRACKS]</text>'
+
     svg = f'''<svg width="{W}" height="{H}" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
@@ -312,7 +339,7 @@ def render_svg(state, pulse):
   {cur_line}
   
   <line x1="0" y1="{H-28}" x2="{W}" y2="{H-28}" stroke="#1c2436" stroke-width="1" />
-  <text x="40" y="{H-10}" fill="#00ffa3" font-family="sans-serif" font-size="12">♫ CHLOEOS RADIO // COMPLETE ORIGINAL SOUNDTRACK [33 TRACKS]</text>
+  {audio_display}
   <text x="{W-40}" y="{H-10}" fill="#00ffa3" font-family="monospace" font-size="12" text-anchor="end">RTMP UPLINK • LIVEPUSH</text>
 </svg>'''
     return svg
@@ -346,7 +373,17 @@ def run_stream():
                 break
     audio_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audio")
     playlist_path = os.path.join(audio_dir, "playlist.txt")
+    manifest_path = os.path.join(audio_dir, "manifest.json")
     mp3_files = sorted([f for f in os.listdir(audio_dir) if f.lower().endswith(".mp3")]) if os.path.exists(audio_dir) else []
+
+    audio_manifest = []
+    if os.path.exists(manifest_path):
+        try:
+            with open(manifest_path, "r") as mf:
+                audio_manifest = json.load(mf)
+            print(f"[STREAM-WORKER] Audio Engine: Loaded track metadata for {len(audio_manifest)} songs.", flush=True)
+        except Exception as e:
+            print(f"[STREAM-WORKER] Audio manifest warning: {e}", file=sys.stderr)
 
     if mp3_files:
         try:
@@ -383,6 +420,7 @@ def run_stream():
 
     pulse = False
     last_log_time = time.time()
+    stream_start_time = time.time()
     try:
         while running and proc.poll() is None:
             t0 = time.time()
@@ -399,7 +437,10 @@ def run_stream():
                     "source": market_data["source"]
                 }
 
-            svg = render_svg(state_copy, pulse)
+            elapsed_audio = time.time() - stream_start_time
+            track_title, track_pos, track_len = get_current_track_info(audio_manifest, elapsed_audio)
+
+            svg = render_svg(state_copy, pulse, track_title, track_pos, track_len)
             
             p_conv = subprocess.run(
                 [RSVG_BIN, "-f", "png", "-"],
